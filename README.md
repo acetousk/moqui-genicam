@@ -10,7 +10,7 @@ JEP embeds Python inside the JVM process. It does **not** spawn a separate opera
 
 Unlike typical IP camera streams (e.g. RTSP/ONVIF) or standard wrapper libraries that treat vision cameras as simple video feeds, `moqui-genicam` is designed from the ground up for **industrial automation** and **advanced machine vision**:
 
-1. **Model-First Digital Twin**: The camera's settings, capabilities, and registers are not hardcoded. They are declared in Moqui's database using the [moqui-device](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-device) and [moqui-math](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-math) schemas. Changes to exposure, triggers, or frame rates require zero code modifications.
+1. **Model-First Digital Twin**: The camera's settings, capabilities, and registers are not hardcoded. They are declared in Moqui's database using the `moqui-device` and `moqui-math` schemas (see the component `data` and `entity` folders). Changes to exposure, triggers, or frame rates require zero code modifications.
 2. **Zero-Copy & Zero Graphics Pipelines**: Raw image buffers and Time-of-Flight (ToF) coordinate maps are processed directly in memory. They bypass traditional OpenCV/Java graphics libraries, converting buffers straight into structured NumPy arrays (no unnecessary BGR conversions) and saving them as `.npy` binaries.
 3. **Seamless Interoperability**: Combining the performance of Moqui's Java transactional engine with the data-science power of Python's scientific stack (NumPy, OpenCV) via Java Embedded Python (JEP) allows low-latency, thread-safe hardware access.
 4. **Declarative XML Services**: Operations are organized via standard Moqui XML-actions. Database transactions, file cleanups, and camera status changes are executed declaratively with standard validation and logging.
@@ -92,15 +92,15 @@ flowchart TD
 
 ## 🗂️ Component Directory Layout
 
-*   [component.xml](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/component.xml): Declares dependencies on `moqui-math`, `moqui-device`, and `moqui-jep`.
-*   [build.gradle](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/build.gradle): Manages builds and testing libraries.
-*   [MoquiConf.xml](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/MoquiConf.xml): Defines default output paths, image format, video container/codec, and optional resize settings.
-*   [data/GenicamData.xml](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/data/GenicamData.xml): Defines the scheduled cleanup `ServiceJob`.
-*   [data/GenicamTestData.xml](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/data/GenicamTestData.xml): Contains test camera definitions, connection configurations, and test requests.
-*   [script/genicam_bridge.py](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/script/genicam_bridge.py): Core Python bridge code (connecting Harvesters, decoding GenDC, converting pixel formats, and handling transactional persistence).
-*   [service/moqui/genicam/GenicamServices.xml](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/service/moqui/genicam/GenicamServices.xml): Declares Moqui services refactored using standard declarative XML-actions.
-*   [src/test/groovy/GenicamServiceTests.groovy](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/src/test/groovy/GenicamServiceTests.groovy): Spock integration tests covering reads, writes, streams, 3D frame capture, error transitions, and daily cleanups.
-*   [requirements.txt](file:///C:/Users/igorg/Desktop/moqui-genicam-test/moqui-framework/runtime/component/moqui-genicam/requirements.txt): Declares required Python packages (`opencv-python`).
+*   `component.xml`: Declares dependencies on `moqui-math`, `moqui-device`, and `moqui-jep`.
+*   `build.gradle`: Manages builds and testing libraries.
+*   `MoquiConf.xml`: Defines default output paths, image format, video container/codec, and optional resize settings.
+*   `data/GenicamData.xml`: Defines the scheduled cleanup `ServiceJob`.
+*   `data/GenicamTestData.xml`: Contains test camera definitions, connection configurations, and test requests.
+*   `script/genicam_bridge.py`: Core Python bridge code (connecting Harvesters, decoding GenDC, converting pixel formats, and handling transactional persistence).
+*   `service/moqui/genicam/GenicamServices.xml`: Declares Moqui services refactored using standard declarative XML-actions.
+*   `src/test/groovy/GenicamServiceTests.groovy`: Spock integration tests covering reads, writes, streams, 3D frame capture, error transitions, and daily cleanups.
+*   `requirements.txt`: Declares required Python packages (NumPy/OpenCV/Harvesters availability is provided via the Moqui JEP runtime or this component's `requirements.txt`).
 
 ---
 
@@ -109,13 +109,23 @@ flowchart TD
 > [!NOTE]
 > The test suite uses the simulated fallback mode if no real hardware is available or if the `.cti` driver file is missing, making it completely safe to run in automated CI/CD environments.
 
-To run the integration tests:
+To run the integration tests (Windows):
 ```bash
 .\gradlew.bat :runtime:component:moqui-genicam:test --no-daemon
 ```
 
+To run the integration tests (Linux/macOS):
+```bash
+./gradlew :runtime:component:moqui-genicam:test --no-daemon
+```
+
 > [!TIP]
-> To configure real hardware, update the `DeviceConnection` records in your database to point to your physical GenTL driver (e.g. `C:\Program Files\Teledyne\Spinnaker\cti64\vs2015\Spinnaker_GenTL_v140.cti` on Windows) and set your camera's real serial number in the connection options.
+> To configure real hardware, update the `DeviceConnection` records in your database to point to your physical GenTL driver (examples):
+>
+> - Windows example: `C:\Program Files\Teledyne\Spinnaker\cti64\vs2015\Spinnaker_GenTL_v140.cti`
+> - Linux example: `/opt/vendor/cti/Spinnaker_GenTL_v140.cti`
+>
+> Then set your camera's real serial number in the connection options.
 
 For direct acquisition tests against a connected FLIR camera, the most useful services are:
 
