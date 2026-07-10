@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- No copyright or license for configuration file, details here are not considered a creative work. -->
+<moqui-conf xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://moqui.org/xsd/moqui-conf-3.xsd">
+
+    <default-property name="genicam.images.path" value="runtime/genicam/images"/>
+    <default-property name="genicam.frames.path" value="runtime/genicam/frames"/>
+    <default-property name="genicam.videos.path" value="runtime/genicam/videos"/>
+    <default-property name="genicam.servo.path" value="runtime/genicam/servo"/>
+    <default-property name="genicam.tensors.path" value="runtime/genicam/tensors"/>
+    <default-property name="genicam.image.format" value="jpg"/>
+    <default-property name="genicam.video.container" value="avi"/>
+    <default-property name="genicam.video.codec" value="MJPG"/>
+    <default-property name="genicam.frames.default.numFrames" value="10"/>
+    <default-property name="genicam.videos.default.numFrames" value="60"/>
+    <default-property name="genicam.videos.default.fps" value="15.0"/>
+    <default-property name="genicam.connection.retry.count" value="3"/>
+    <default-property name="genicam.connection.retry.backoff.ms" value="1000"/>
+    <default-property name="genicam.connection.fetch.timeout.ms" value="1000"/>
+    <default-property name="genicam.multi.process.timeout.ms" value="120000"/>
+    <default-property name="genicam.stream.max.frames" value="100"/>
+    <default-property name="genicam.stream.frame.delay.ms" value="66"/>
+    <default-property name="genicam.stream.stop.timeout.ms" value="3000"/>
+    <default-property name="genicam.stream.mock.frame.delay.ms" value="100"/>
+    <default-property name="genicam.servo.default.useCachedFrame" value="true"/>
+    <default-property name="genicam.servo.default.saveSnapshot" value="false"/>
+    <default-property name="genicam.servo.buffer.source" value="latest"/>
+    <default-property name="genicam.servo.max.frame.age.ms" value="250"/>
+    <default-property name="genicam.images.resize.width" value=""/>
+    <default-property name="genicam.images.resize.height" value=""/>
+    <default-property name="genicam.frames.resize.width" value=""/>
+    <default-property name="genicam.frames.resize.height" value=""/>
+    <default-property name="genicam.videos.resize.width" value=""/>
+    <default-property name="genicam.videos.resize.height" value=""/>
+    <default-property name="genicam.servo.resize.width" value=""/>
+    <default-property name="genicam.servo.resize.height" value=""/>
+
+</moqui-conf>

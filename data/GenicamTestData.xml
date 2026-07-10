@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+This software is in the public domain under CC0 1.0 Universal plus a
+Grant of Patent License.
+
+To the extent possible under law, the author(s) have dedicated all
+copyright and related and neighboring rights to this software to the
+public domain worldwide. This software is distributed without any
+warranty.
+
+You should have received a copy of the CC0 Public Domain Dedication
+along with this software (see the LICENSE.md file). If not, see
+<http://creativecommons.org/publicdomain/zero/1.0/>.
+-->
+<entity-facade-xml type="seed">
+    <!-- Custom Enumerations for GenICam -->
+    <moqui.basic.Enumeration description="Vision Camera" enumId="DtVisionCamera" parentEnumId="DtSmartSensor" enumTypeId="DeviceType"/>
+    <moqui.basic.Enumeration description="GenICam Camera" enumId="DcdGenicam" enumCode="genicam" enumTypeId="DeviceConnectionDriver"/>
+    <moqui.basic.Enumeration description="String/Text" enumId="DritString" enumTypeId="DeviceRequestItemType"/>
+
+    <!-- Catalog Device twin (represents the camera model specification) -->
+    <moqui.device.Device deviceId="FLIR_BFS_PGE_120S6C_C" deviceTypeEnumId="DtVisionCamera"
+        description="FLIR Blackfly S GigE Vision Camera Model"/>
+
+    <!-- Active PhysicalDevice (the real connected camera instance) -->
+    <moqui.device.Device deviceId="FLIR_CAMERA_1" parentDeviceId="FLIR_BFS_PGE_120S6C_C"
+        deviceTypeEnumId="DtVisionCamera" statusFlowId="DeviceBasicStatusFlow" statusId="DbsStandstill"
+        serialNumber="FLIR_CAMERA_1" description="Connected FLIR Camera Instance"/>
+    <moqui.device.PhysicalDevice deviceId="FLIR_CAMERA_1" deviceName="FLIR BFS PGE 120S6C C"
+        vendorName="FLIR" modelName="BFS-PGE-120S6C-C" version="1.0" hardwareVersion="BFS-PGE-120S6C-C" firmwareVersion="1.2"/>
+
+    <!-- Optional real PhysicalDevice for local FLIR camera testing -->
+    <moqui.device.Device deviceId="FLIR_CAMERA_REAL_19176722" parentDeviceId="FLIR_BFS_PGE_120S6C_C"
+        deviceTypeEnumId="DtVisionCamera" statusFlowId="DeviceBasicStatusFlow" statusId="DbsStandstill"
+        serialNumber="19176722" description="Connected FLIR Camera Instance - Real serial 19176722"/>
+    <moqui.device.PhysicalDevice deviceId="FLIR_CAMERA_REAL_19176722" deviceName="FLIR BFS PGE 120S6C C"
+        vendorName="FLIR" modelName="BFS-PGE-200S6C" version="1.0" hardwareVersion="BFS-PGE-200S6C" firmwareVersion="2103.0.330.0"/>
+    <moqui.device.Device deviceId="FLIR_CAMERA_REAL_25040613" parentDeviceId="FLIR_BFS_PGE_120S6C_C"
+        deviceTypeEnumId="DtVisionCamera" statusFlowId="DeviceBasicStatusFlow" statusId="DbsStandstill"
+        serialNumber="25040613" description="Connected FLIR Camera Instance - Real serial 25040613"/>
+    <moqui.device.PhysicalDevice deviceId="FLIR_CAMERA_REAL_25040613" deviceName="FLIR BFS PGE 23S3C"
+        vendorName="FLIR" modelName="BFS-PGE-23S3C" version="1.0" hardwareVersion="BFS-PGE-23S3C"/>
+
+    <!-- GenICam Parameter Definitions for FLIR Camera Model -->
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_ExposureTime"
+        parameterCode="ExposureTime" parameterName="ExposureTime" parameterTypeEnumId="PtNumberFloat"
+        permissionEnumId="PpeReadWrite" minValue="5.0" maxValue="30000000.0"
+        description="Exposure time in microseconds"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_Gain"
+        parameterCode="Gain" parameterName="Gain" parameterTypeEnumId="PtNumberFloat"
+        permissionEnumId="PpeReadWrite" minValue="0.0" maxValue="48.0"
+        description="Gain in dB"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_TriggerMode"
+        parameterCode="TriggerMode" parameterName="TriggerMode" parameterTypeEnumId="PtText"
+        permissionEnumId="PpeReadWrite"
+        description="Controls if the selected trigger is active (On or Off)"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_TriggerSource"
+        parameterCode="TriggerSource" parameterName="TriggerSource" parameterTypeEnumId="PtText"
+        permissionEnumId="PpeReadWrite"
+        description="Specifies the internal signal or physical line to use as trigger source"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_TriggerSoftware"
+        parameterCode="TriggerSoftware" parameterName="TriggerSoftware" parameterTypeEnumId="PtText"
+        permissionEnumId="PpeWrite"
+        description="Generates an internal software trigger to capture an image"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_AcquisitionStart"
+        parameterCode="AcquisitionStart" parameterName="AcquisitionStart" parameterTypeEnumId="PtText"
+        permissionEnumId="PpeWrite"
+        description="Starts the acquisition of images"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_AcquisitionStop"
+        parameterCode="AcquisitionStop" parameterName="AcquisitionStop" parameterTypeEnumId="PtText"
+        permissionEnumId="PpeWrite"
+        description="Stops the acquisition of images"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_AcquisitionFrameRate"
+        parameterCode="AcquisitionFrameRate" parameterName="AcquisitionFrameRate" parameterTypeEnumId="PtNumberFloat"
+        permissionEnumId="PpeReadWrite"
+        description="Controls the acquisition rate in frames per second"/>
+
+    <moqui.math.ParameterDef parameterDefId="FLIR_BFS_LatestFrame"
+        parameterCode="LatestFrame" parameterName="LatestFrame" parameterTypeEnumId="PtText"
+        permissionEnumId="PpeRead"
+        description="File path of the latest acquired camera frame (JPEG/PNG)"/>
+
+    <!-- Live Parameter values representing active state on FLIR_CAMERA_1 -->
+    <moqui.math.Parameter parameterId="11001" parameterDefId="FLIR_BFS_ExposureTime" deviceId="FLIR_CAMERA_1" sequenceNum="1" numericValue="5000.0"/>
+    <moqui.math.Parameter parameterId="11002" parameterDefId="FLIR_BFS_Gain" deviceId="FLIR_CAMERA_1" sequenceNum="2" numericValue="0.0"/>
+    <moqui.math.Parameter parameterId="11003" parameterDefId="FLIR_BFS_TriggerMode" deviceId="FLIR_CAMERA_1" sequenceNum="3" symbolicValue="On"/>
+    <moqui.math.Parameter parameterId="11004" parameterDefId="FLIR_BFS_TriggerSource" deviceId="FLIR_CAMERA_1" sequenceNum="4" symbolicValue="Software"/>
+    <moqui.math.Parameter parameterId="11005" parameterDefId="FLIR_BFS_TriggerSoftware" deviceId="FLIR_CAMERA_1" sequenceNum="5" symbolicValue="Execute"/>
+    <moqui.math.Parameter parameterId="11006" parameterDefId="FLIR_BFS_AcquisitionStart" deviceId="FLIR_CAMERA_1" sequenceNum="6" symbolicValue="Execute"/>
+    <moqui.math.Parameter parameterId="11007" parameterDefId="FLIR_BFS_AcquisitionStop" deviceId="FLIR_CAMERA_1" sequenceNum="7" symbolicValue="Execute"/>
+    <moqui.math.Parameter parameterId="11008" parameterDefId="FLIR_BFS_AcquisitionFrameRate" deviceId="FLIR_CAMERA_1" sequenceNum="8" numericValue="30.0"/>
+    <moqui.math.Parameter parameterId="11009" parameterDefId="FLIR_BFS_LatestFrame" deviceId="FLIR_CAMERA_1" sequenceNum="9" symbolicValue=""/>
+
+    <!-- Device connection mapping to CTI driver path -->
+    <moqui.device.DeviceConnection connectionName="FlirCameraConnection" deviceId="FLIR_CAMERA_1"
+        driverEnumId="DcdGenicam" transportConfig="runtime/genicam/drivers/flir.cti"
+        options="serial=FLIR_CAMERA_1"/>
+    <moqui.device.DeviceConnection connectionName="FlirCameraConnectionReal" deviceId="FLIR_CAMERA_REAL_19176722"
+        driverEnumId="DcdGenicam" transportConfig="C:/Program Files/Teledyne/Spinnaker/cti64/vs2015/Spinnaker_GenTL_v140.cti"
+        options="serial=19176722"/>
+    <moqui.device.DeviceConnection connectionName="FlirCameraConnectionReal25040613" deviceId="FLIR_CAMERA_REAL_25040613"
+        driverEnumId="DcdGenicam" transportConfig="C:/Program Files/Teledyne/Spinnaker/cti64/vs2015/Spinnaker_GenTL_v140.cti"
+        options="serial=25040613"/>
+
+    <!-- Device Requests and Items for Camera Interaction -->
+    <!-- 1. Write Request (Trigger Software Shot) -->
+    <moqui.device.DeviceRequest requestName="FLIR_TriggerShot" deviceId="FLIR_CAMERA_1" priority="1"
+        purposeEnumId="DrpControl" routerEnumId="DrrDirect" connectionName="FlirCameraConnection"
+        requestTypeEnumId="DrtWrite"
+        runServiceName="moqui.genicam.GenicamServices.run#GenICamRequest" timeout="5000" onlyChangedParameters="N"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_TriggerShot" parameterId="11005"
+        sequenceNum="1" query="TriggerSoftware" itemTypeEnumId="DritString"/>
+
+    <!-- 2. Read Request (Read Live Camera State) -->
+    <moqui.device.DeviceRequest requestName="FLIR_ReadState" deviceId="FLIR_CAMERA_1" priority="2"
+        purposeEnumId="DrpMonitoring" routerEnumId="DrrDirect" connectionName="FlirCameraConnection"
+        requestTypeEnumId="DrtRead"
+        runServiceName="moqui.genicam.GenicamServices.run#GenICamRequest" timeout="5000"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_ReadState" parameterId="11001"
+        sequenceNum="1" query="ExposureTime" itemTypeEnumId="DritReal"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_ReadState" parameterId="11002"
+        sequenceNum="2" query="Gain" itemTypeEnumId="DritReal"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_ReadState" parameterId="11003"
+        sequenceNum="3" query="TriggerMode" itemTypeEnumId="DritString"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_ReadState" parameterId="11004"
+        sequenceNum="4" query="TriggerSource" itemTypeEnumId="DritString"/>
+
+    <!-- 3. Write Request (Start Streaming) -->
+    <moqui.device.DeviceRequest requestName="FLIR_StartStreaming" deviceId="FLIR_CAMERA_1" priority="3"
+        purposeEnumId="DrpControl" routerEnumId="DrrDirect" connectionName="FlirCameraConnection"
+        requestTypeEnumId="DrtWrite"
+        runServiceName="moqui.genicam.GenicamServices.run#GenICamRequest" timeout="5000" onlyChangedParameters="N"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_StartStreaming" parameterId="11006"
+        sequenceNum="1" query="AcquisitionStart" itemTypeEnumId="DritString"/>
+
+    <!-- 4. Write Request (Stop Streaming) -->
+    <moqui.device.DeviceRequest requestName="FLIR_StopStreaming" deviceId="FLIR_CAMERA_1" priority="4"
+        purposeEnumId="DrpControl" routerEnumId="DrrDirect" connectionName="FlirCameraConnection"
+        requestTypeEnumId="DrtWrite"
+        runServiceName="moqui.genicam.GenicamServices.run#GenICamRequest" timeout="5000" onlyChangedParameters="N"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_StopStreaming" parameterId="11007"
+        sequenceNum="1" query="AcquisitionStop" itemTypeEnumId="DritString"/>
+
+    <!-- 5. Read Request (Get Latest Frame) -->
+    <moqui.device.DeviceRequest requestName="FLIR_GetFrame" deviceId="FLIR_CAMERA_1" priority="5"
+        purposeEnumId="DrpMonitoring" routerEnumId="DrrDirect" connectionName="FlirCameraConnection"
+        requestTypeEnumId="DrtRead"
+        runServiceName="moqui.genicam.GenicamServices.run#GenICamRequest" timeout="5000"/>
+    <moqui.device.DeviceRequestItem requestName="FLIR_GetFrame" parameterId="11009"
+        sequenceNum="1" query="LatestFrame" itemTypeEnumId="DritString"/>
+</entity-facade-xml>
