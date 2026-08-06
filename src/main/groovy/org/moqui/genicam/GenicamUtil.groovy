@@ -316,4 +316,5 @@ final class GenicamUtil {
         return [tensorId: tensor.tensorId, tensorContentId: tensorContent.tensorContentId,
                 contentLocation: tensorContent.contentLocation]
     }
+
 }

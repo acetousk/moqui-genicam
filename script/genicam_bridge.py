@@ -566,6 +566,79 @@ def update_device_status_to_error(ec, device_id):
     except Exception as e:
         logger.error(f"Failed to update device status to DbsErrorStop: {e}")
 
+
+def _infer_device_content_type(content_location):
+    if not content_location:
+        return None
+    lower = str(content_location).lower()
+    if lower.endswith((".jpg", ".jpeg", ".png", ".bmp")):
+        return "DCntImage"
+    return None
+
+
+def _store_device_content_reference(ec, device_id, content_location, description=None, sequence_num=None):
+    if ec is None or not device_id or not content_location:
+        return {}
+
+    content_type_enum_id = _infer_device_content_type(content_location)
+    if not content_type_enum_id:
+        return {}
+
+    normalized_location = os.path.abspath(content_location).replace("\\", "/")
+    db = ec.getEntity()
+    existing = db.find("moqui.device.DeviceContent") \
+        .condition("deviceId", device_id) \
+        .condition("contentLocation", normalized_location) \
+        .useCache(False).one()
+
+    if existing is not None:
+        existing = existing.cloneValue()
+        existing.set("contentDate", ec.getUser().getNowTimestamp())
+        existing.set("contentTypeEnumId", content_type_enum_id)
+        if description:
+            existing.set("description", description)
+        if sequence_num is not None:
+            existing.set("sequenceNum", sequence_num)
+        existing.update()
+        return {
+            "device_content_id": existing.get("deviceContentId"),
+            "content_location": normalized_location,
+        }
+
+    if sequence_num is None:
+        sequence_num = int(db.find("moqui.device.DeviceContent").condition("deviceId", device_id).count()) + 1
+
+    device_content = db.makeValue("moqui.device.DeviceContent")
+    device_content.setSequencedIdPrimary()
+    device_content.set("deviceId", device_id)
+    device_content.set("contentLocation", normalized_location)
+    device_content.set("contentTypeEnumId", content_type_enum_id)
+    device_content.set("contentDate", ec.getUser().getNowTimestamp())
+    device_content.set("sequenceNum", sequence_num)
+    if description:
+        device_content.set("description", description)
+    device_content.create()
+
+    return {
+        "device_content_id": device_content.get("deviceContentId"),
+        "content_location": normalized_location,
+    }
+
+
+def _store_image_device_contents(ec, device_id, content_locations, description_prefix):
+    if not content_locations:
+        return []
+
+    results = []
+    for idx, content_location in enumerate(content_locations, start=1):
+        if not content_location:
+            continue
+        description = f"{description_prefix} #{idx}" if description_prefix else None
+        stored = _store_device_content_reference(ec, device_id, content_location, description=description)
+        if stored:
+            results.append(stored)
+    return results
+
 def convert_to_numpy_array(component):
     """Converts a Harvesters payload component into a standard BGR image array using OpenCV."""
     if not HAS_OPENCV:
@@ -781,7 +854,7 @@ def _fetch_single_capture(cti_path, serial_number, image_format="jpg", resize_wi
             ia.stop()
 
 def acquire_single_image(cti_path, serial_number, output_dir=DEFAULT_IMAGES_DIR, image_format="jpg",
-        resize_width=None, resize_height=None):
+        resize_width=None, resize_height=None, ec=None, device_id=None):
     logger.info(f"Acquiring single image from camera {serial_number}")
     _ensure_output_dir(output_dir)
 
@@ -789,6 +862,12 @@ def acquire_single_image(cti_path, serial_number, output_dir=DEFAULT_IMAGES_DIR,
         resize_width=resize_width, resize_height=resize_height)
     capture.update(_write_frame_entry_files(serial_number, capture, output_dir, "single"))
     capture["file_path"] = capture["snapshot_location"]
+    stored = _store_device_content_reference(
+        ec, device_id, capture.get("file_path"),
+        description=f"GenICam single image captured by device {device_id}" if device_id else None,
+    )
+    if stored:
+        capture["device_content_id"] = stored.get("device_content_id")
     return capture
 
 def acquire_video_file(cti_path, serial_number, num_frames=60, fps=15.0, output_dir=DEFAULT_VIDEOS_DIR,
@@ -845,7 +924,7 @@ def acquire_video_file(cti_path, serial_number, num_frames=60, fps=15.0, output_
     }
 
 def acquire_visual_servo_frame(cti_path, serial_number, use_cached=True, save_snapshot=False,
-        output_dir=DEFAULT_SERVO_DIR, image_format="jpg", resize_width=None, resize_height=None):
+        output_dir=DEFAULT_SERVO_DIR, image_format="jpg", resize_width=None, resize_height=None, ec=None, device_id=None):
     logger.info(f"Acquiring visual servo frame from camera {serial_number} (use_cached={use_cached}, save_snapshot={save_snapshot})")
 
     frame_entry = None
@@ -869,6 +948,18 @@ def acquire_visual_servo_frame(cti_path, serial_number, use_cached=True, save_sn
 
     if save_snapshot:
         frame_entry.update(_write_frame_entry_files(serial_number, frame_entry, output_dir, "servo"))
+        snapshot_stored = _store_device_content_reference(
+            ec, device_id, frame_entry.get("snapshot_location"),
+            description=f"GenICam visual servo snapshot captured by device {device_id}" if device_id else None,
+        )
+        if snapshot_stored:
+            frame_entry["snapshot_device_content_id"] = snapshot_stored.get("device_content_id")
+        preview_stored = _store_device_content_reference(
+            ec, device_id, frame_entry.get("preview_location"),
+            description=f"GenICam visual servo preview captured by device {device_id}" if device_id else None,
+        )
+        if preview_stored:
+            frame_entry["preview_device_content_id"] = preview_stored.get("device_content_id")
 
     return frame_entry
 
@@ -1122,7 +1213,7 @@ def write_camera_parameters(cti_path, serial_number, parameters_map):
     return result
 
 def acquire_video_stream(cti_path, serial_number, num_frames=10, output_dir=DEFAULT_FRAMES_DIR, image_format="jpg",
-        resize_width=None, resize_height=None):
+        resize_width=None, resize_height=None, ec=None, device_id=None):
     """Starts acquisition, fetches a number of frames, and stops acquisition."""
     logger.info(f"Acquiring video stream of {num_frames} frames from camera {serial_number}")
     os.makedirs(output_dir, exist_ok=True)
@@ -1144,7 +1235,14 @@ def acquire_video_stream(cti_path, serial_number, num_frames=10, output_dir=DEFA
                 f.write(image_bytes)
             mock_files.append(frame_path)
             logger.info(f"Mock acquired frame {i} saved to {frame_path}")
-        return {"acquired_frames": mock_files}
+        stored_frames = _store_image_device_contents(
+            ec, device_id, mock_files,
+            f"GenICam streamed frame captured by device {device_id}" if device_id else None,
+        )
+        return {
+            "acquired_frames": mock_files,
+            "device_content_id_list": [entry.get("device_content_id") for entry in stored_frames],
+        }
 
     # Real mode
     conn = get_connection(cti_path, serial_number)
@@ -1187,7 +1285,14 @@ def acquire_video_stream(cti_path, serial_number, num_frames=10, output_dir=DEFA
         
         ia.stop()
         logger.info("Image acquisition stopped.")
-        return {"acquired_frames": frame_files}
+        stored_frames = _store_image_device_contents(
+            ec, device_id, frame_files,
+            f"GenICam streamed frame captured by device {device_id}" if device_id else None,
+        )
+        return {
+            "acquired_frames": frame_files,
+            "device_content_id_list": [entry.get("device_content_id") for entry in stored_frames],
+        }
     except Exception as e:
         logger.error(f"Error during video stream acquisition: {e}")
         try: ia.stop()
@@ -1207,7 +1312,7 @@ def run_action(action, cti_path, serial_number, parameter_names=None, parameters
             resize_width = _map_get(parameters_map, "resize_width", None)
             resize_height = _map_get(parameters_map, "resize_height", None)
             return acquire_single_image(cti_path, serial_number, output_dir=output_dir, image_format=image_format,
-                resize_width=resize_width, resize_height=resize_height)
+                resize_width=resize_width, resize_height=resize_height, ec=ec, device_id=device_id)
         elif action == "video":
             num_frames = _map_get(parameters_map, "num_frames", 10)
             output_dir = _map_get(parameters_map, "output_dir", DEFAULT_FRAMES_DIR)
@@ -1215,7 +1320,8 @@ def run_action(action, cti_path, serial_number, parameter_names=None, parameters
             resize_width = _map_get(parameters_map, "resize_width", None)
             resize_height = _map_get(parameters_map, "resize_height", None)
             return acquire_video_stream(cti_path, serial_number, num_frames=num_frames,
-                output_dir=output_dir, image_format=image_format, resize_width=resize_width, resize_height=resize_height)
+                output_dir=output_dir, image_format=image_format, resize_width=resize_width, resize_height=resize_height,
+                ec=ec, device_id=device_id)
         elif action == "video_file":
             num_frames = _map_get(parameters_map, "num_frames", 60)
             fps = _map_get(parameters_map, "fps", 15.0)
@@ -1245,7 +1351,7 @@ def run_action(action, cti_path, serial_number, parameter_names=None, parameters
             resize_height = _map_get(parameters_map, "resize_height", None)
             return acquire_visual_servo_frame(cti_path, serial_number, use_cached=use_cached,
                 save_snapshot=save_snapshot, output_dir=output_dir, image_format=image_format,
-                resize_width=resize_width, resize_height=resize_height)
+                resize_width=resize_width, resize_height=resize_height, ec=ec, device_id=device_id)
         else:
             raise ValueError(f"Unknown action: {action}")
     except Exception as e:

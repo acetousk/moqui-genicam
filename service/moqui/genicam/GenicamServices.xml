@@ -60,6 +60,7 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="contentType"/>
             <parameter name="width" type="Integer"/>
             <parameter name="height" type="Integer"/>
+            <parameter name="deviceContentId"/>
         </out-parameters>
         <actions>
             <!-- Resolve PhysicalDevice -->
@@ -118,6 +119,7 @@ along with this software (see the LICENSE.md file). If not, see
                 context.contentType = pyResults?.get("content_type")
                 context.width = pyResults?.get("width")
                 context.height = pyResults?.get("height")
+                context.deviceContentId = pyResults?.get("device_content_id")
             ]]></script>
         </actions>
     </service>
@@ -134,6 +136,7 @@ along with this software (see the LICENSE.md file). If not, see
         </in-parameters>
         <out-parameters>
             <parameter name="acquiredFrames" type="List"/>
+            <parameter name="deviceContentIdList" type="List"/>
         </out-parameters>
         <actions>
             <!-- Resolve PhysicalDevice -->
@@ -189,6 +192,7 @@ along with this software (see the LICENSE.md file). If not, see
                 }
 
                 context.acquiredFrames = pyResults?.get("acquired_frames")
+                context.deviceContentIdList = pyResults?.get("device_content_id_list")
             ]]></script>
         </actions>
     </service>
@@ -383,6 +387,8 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="source"/>
             <parameter name="snapshotLocation"/>
             <parameter name="previewLocation"/>
+            <parameter name="snapshotDeviceContentId"/>
+            <parameter name="previewDeviceContentId"/>
         </out-parameters>
         <actions>
             <!-- Resolve PhysicalDevice -->
@@ -453,6 +459,8 @@ along with this software (see the LICENSE.md file). If not, see
                 context.source = pyResults?.get("source")
                 context.snapshotLocation = pyResults?.get("snapshot_location")
                 context.previewLocation = pyResults?.get("preview_location")
+                context.snapshotDeviceContentId = pyResults?.get("snapshot_device_content_id")
+                context.previewDeviceContentId = pyResults?.get("preview_device_content_id")
             ]]></script>
         </actions>
     </service>
