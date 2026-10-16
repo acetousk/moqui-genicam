@@ -16,5 +16,4 @@ along with this software (see the LICENSE.md file). If not, see
         name="moqui-genicam" version="1.0.0">
     <depends-on name="moqui-math" version="1.0.0"/>
     <depends-on name="moqui-device" version="1.0.0"/>
-    <depends-on name="moqui-jep" version="1.0.0"/>
 </component>

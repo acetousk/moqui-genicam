@@ -1,0 +1,15 @@
+[package]
+name = "moqui-genicam"
+version = "1.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+moqui-core = { path = "../../../crates/moqui-core", default-features = false }
+moqui-lib = { path = "../../../crates/moqui-lib" }
+tracing = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+jiff = "0.2"
+indexmap = "2"

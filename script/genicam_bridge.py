@@ -1357,3 +1357,61 @@ def run_action(action, cti_path, serial_number, parameter_names=None, parameters
     except Exception as e:
         update_device_status_to_error(ec, device_id)
         raise e
+
+
+def _encode_val(v):
+    if isinstance(v, (bytes, bytearray)):
+        import base64
+        return {"__base64__": base64.b64encode(v).decode("ascii")}
+    if isinstance(v, dict):
+        return {k: _encode_val(val) for k, val in v.items()}
+    if isinstance(v, list):
+        return [_encode_val(item) for item in v]
+    return v
+
+
+def main():
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "run-action":
+        payload_text = sys.stdin.read()
+        if not payload_text:
+            raise ValueError("Missing JSON payload on stdin.")
+        payload = json.loads(payload_text)
+
+        runtime_config = payload.get("runtime_config")
+        if runtime_config:
+            configure_runtime(runtime_config)
+
+        action = payload.get("action")
+        cti_path = payload.get("cti_path")
+        serial_number = payload.get("serial_number")
+        parameter_names = payload.get("parameter_names")
+        parameters_map = payload.get("parameters_map")
+        device_id = payload.get("device_id")
+
+        result = run_action(
+            action,
+            cti_path,
+            serial_number,
+            parameter_names=parameter_names,
+            parameters_map=parameters_map,
+            ec=None,
+            device_id=device_id,
+        )
+
+        encoded = _encode_val(result)
+        print(json.dumps(encoded, sort_keys=True))
+        return 0
+    elif len(sys.argv) > 1 and sys.argv[1] == "close-all":
+        close_all_connections()
+        print(json.dumps({"status": "success"}))
+        return 0
+    else:
+        print("Usage: python genicam_bridge.py run-action < payload.json", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(main())
+

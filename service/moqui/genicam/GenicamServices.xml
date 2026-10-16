@@ -17,35 +17,12 @@ along with this software (see the LICENSE.md file). If not, see
 
     <!-- ========== GenICam Request Services ========== -->
 
-    <service verb="run" noun="GenICamRequest" authenticate="false" transaction="ignore">
-        <description>Implements the run#DeviceRequestInternal interface for GenICam vision cameras using moqui-jep.</description>
+    <service verb="run" noun="GenICamRequest" type="rust" location="moqui_genicam::services::run_genicam_request" authenticate="false" transaction="ignore">
+        <description>Implements the run#DeviceRequestInternal interface for GenICam vision cameras.</description>
         <implements service="moqui.device.DeviceServices.run#DeviceRequestInternal"/>
-        <actions><script><![CDATA[
-            import org.moqui.context.ExecutionContext
-            import org.moqui.genicam.GenicamClient
-            import org.moqui.genicam.GenicamUtil
-
-            if (!connection) throw new IllegalArgumentException("A connection instance is required for GenICam to communicate with the camera ${request.deviceId}. Device request with name ${request.requestName}, aborted.")
-            if (!connection.transportConfig) throw new IllegalArgumentException("Connection transportConfig must specify the absolute path to the .cti GenTL driver.")
-
-            ExecutionContext ec = context.ec
-            String ctiPath = connection.transportConfig
-            String serialNumber = GenicamUtil.resolveSerialNumber(device, connection)
-
-            ec.logger.info("Connecting to camera with ID ${request.deviceId} using CTI ${ctiPath}.")
-            try (GenicamClient client = new GenicamClient(ec, ctiPath, serialNumber, request.deviceId)) {
-                if ("DrtRead" == request.requestTypeEnumId) {
-                    client.read(request, requestItemList)
-                } else if ("DrtWrite" == request.requestTypeEnumId) {
-                    client.write(request, requestItemList)
-                } else {
-                    throw new IllegalArgumentException("Unsupported device request type ${request.requestTypeEnumId}. Could not send the device request with name ${request.requestName}.")
-                }
-            }
-        ]]></script></actions>
     </service>
 
-    <service verb="acquire" noun="SingleImage" authenticate="false" transaction="ignore">
+    <service verb="acquire" noun="SingleImage" type="rust" location="moqui_genicam::services::acquire_single_image" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="deviceId" required="true"/>
             <parameter name="connectionName"/>
@@ -62,69 +39,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="height" type="Integer"/>
             <parameter name="deviceContentId"/>
         </out-parameters>
-        <actions>
-            <!-- Resolve PhysicalDevice -->
-            <entity-find-one entity-name="moqui.device.Device" value-field="device"/>
-            <if condition="!device">
-                <message error="true">Device not found with ID: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <!-- Resolve Connection -->
-            <if condition="connectionName">
-                <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                    <field-map field-name="connectionName" from="connectionName"/>
-                </entity-find-one>
-                <else>
-                    <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                        <field-map field-name="deviceId" from="deviceId"/>
-                    </entity-find-one>
-                </else>
-            </if>
-            <if condition="!connection">
-                <message error="true">Connection not found for device: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <set field="ctiPath" from="connection.transportConfig"/>
-            <if condition="!ctiPath">
-                <message error="true">Connection transportConfig must specify driver path.</message>
-                <check-errors/>
-            </if>
-
-            <script><![CDATA[
-                import org.moqui.context.ExecutionContext
-                import org.moqui.genicam.GenicamClient
-                import org.moqui.genicam.GenicamUtil
-
-                ExecutionContext ec = context.ec
-                String serialNumber = GenicamUtil.resolveSerialNumber(device, connection)
-                String resolvedOutputDir = GenicamUtil.resolveConfiguredPath(ec, outputDir,
-                        "genicam.images.path", GenicamUtil.DEFAULT_IMAGES_PATH)
-                String resolvedImageFormat = GenicamUtil.resolveImageFormat(ec, imageFormat)
-                Integer resolvedResizeWidth = GenicamUtil.resolveConfiguredInteger(ec, resizeWidth, "genicam.images.resize.width")
-                Integer resolvedResizeHeight = GenicamUtil.resolveConfiguredInteger(ec, resizeHeight, "genicam.images.resize.height")
-                Map<String, Object> pyResults = [:]
-
-                try (GenicamClient client = new GenicamClient(ec, ctiPath, serialNumber, deviceId)) {
-                    pyResults = client.acquireSingleImage(resolvedOutputDir, resolvedImageFormat,
-                            resolvedResizeWidth, resolvedResizeHeight)
-                } catch (Throwable t) {
-                    ec.logger.error("GenICam JEP single image acquisition failed", t)
-                    throw t
-                }
-
-                context.imageLocation = pyResults?.get("file_path")
-                context.imageFormat = pyResults?.get("extension")
-                context.contentType = pyResults?.get("content_type")
-                context.width = pyResults?.get("width")
-                context.height = pyResults?.get("height")
-                context.deviceContentId = pyResults?.get("device_content_id")
-            ]]></script>
-        </actions>
     </service>
 
-    <service verb="acquire" noun="VideoStream" authenticate="false" transaction="ignore">
+    <service verb="acquire" noun="VideoStream" type="rust" location="moqui_genicam::services::acquire_video_stream" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="deviceId" required="true"/>
             <parameter name="connectionName"/>
@@ -138,66 +55,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="acquiredFrames" type="List"/>
             <parameter name="deviceContentIdList" type="List"/>
         </out-parameters>
-        <actions>
-            <!-- Resolve PhysicalDevice -->
-            <entity-find-one entity-name="moqui.device.Device" value-field="device"/>
-            <if condition="!device">
-                <message error="true">Device not found with ID: ${deviceId}</message>
-                <check-errors/>
-            </if>
-            
-            <!-- Resolve Connection -->
-            <if condition="connectionName">
-                <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                    <field-map field-name="connectionName" from="connectionName"/>
-                </entity-find-one>
-                <else>
-                    <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                        <field-map field-name="deviceId" from="deviceId"/>
-                    </entity-find-one>
-                </else>
-            </if>
-            <if condition="!connection">
-                <message error="true">Connection not found for device: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <set field="ctiPath" from="connection.transportConfig"/>
-            <if condition="!ctiPath">
-                <message error="true">Connection transportConfig must specify driver path.</message>
-                <check-errors/>
-            </if>
-            
-            <script><![CDATA[
-                import org.moqui.context.ExecutionContext
-                import org.moqui.genicam.GenicamClient
-                import org.moqui.genicam.GenicamUtil
-
-                ExecutionContext ec = context.ec
-                String serialNumber = GenicamUtil.resolveSerialNumber(device, connection)
-                String resolvedOutputDir = GenicamUtil.resolveConfiguredPath(ec, outputDir,
-                        "genicam.frames.path", GenicamUtil.DEFAULT_FRAMES_PATH)
-                String resolvedImageFormat = GenicamUtil.resolveImageFormat(ec, imageFormat)
-                Integer resolvedNumFrames = GenicamUtil.resolveConfiguredInteger(ec, numFrames, "genicam.frames.default.numFrames")
-                Integer resolvedResizeWidth = GenicamUtil.resolveConfiguredInteger(ec, resizeWidth, "genicam.frames.resize.width")
-                Integer resolvedResizeHeight = GenicamUtil.resolveConfiguredInteger(ec, resizeHeight, "genicam.frames.resize.height")
-                Map<String, Object> pyResults = [:]
-
-                try (GenicamClient client = new GenicamClient(ec, ctiPath, serialNumber, deviceId)) {
-                    pyResults = client.acquireVideoStream(resolvedNumFrames, resolvedOutputDir, resolvedImageFormat,
-                            resolvedResizeWidth, resolvedResizeHeight)
-                } catch (Throwable t) {
-                    ec.logger.error("GenICam JEP video stream acquisition failed", t)
-                    throw t
-                }
-
-                context.acquiredFrames = pyResults?.get("acquired_frames")
-                context.deviceContentIdList = pyResults?.get("device_content_id_list")
-            ]]></script>
-        </actions>
     </service>
 
-    <service verb="acquire" noun="VideoFile" authenticate="false" transaction="ignore">
+    <service verb="acquire" noun="VideoFile" type="rust" location="moqui_genicam::services::acquire_video_file" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="deviceId" required="true"/>
             <parameter name="connectionName"/>
@@ -216,71 +76,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="videoContainer"/>
             <parameter name="videoCodec"/>
         </out-parameters>
-        <actions>
-            <!-- Resolve PhysicalDevice -->
-            <entity-find-one entity-name="moqui.device.Device" value-field="device"/>
-            <if condition="!device">
-                <message error="true">Device not found with ID: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <!-- Resolve Connection -->
-            <if condition="connectionName">
-                <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                    <field-map field-name="connectionName" from="connectionName"/>
-                </entity-find-one>
-                <else>
-                    <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                        <field-map field-name="deviceId" from="deviceId"/>
-                    </entity-find-one>
-                </else>
-            </if>
-            <if condition="!connection">
-                <message error="true">Connection not found for device: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <set field="ctiPath" from="connection.transportConfig"/>
-            <if condition="!ctiPath">
-                <message error="true">Connection transportConfig must specify driver path.</message>
-                <check-errors/>
-            </if>
-
-            <script><![CDATA[
-                import org.moqui.context.ExecutionContext
-                import org.moqui.genicam.GenicamClient
-                import org.moqui.genicam.GenicamUtil
-
-                ExecutionContext ec = context.ec
-                String serialNumber = GenicamUtil.resolveSerialNumber(device, connection)
-                String resolvedOutputDir = GenicamUtil.resolveConfiguredPath(ec, outputDir,
-                        "genicam.videos.path", GenicamUtil.DEFAULT_VIDEOS_PATH)
-                String resolvedVideoContainer = GenicamUtil.resolveVideoContainer(ec, videoContainer)
-                String resolvedVideoCodec = GenicamUtil.resolveVideoCodec(ec, videoCodec)
-                Integer resolvedNumFrames = GenicamUtil.resolveConfiguredInteger(ec, numFrames, "genicam.videos.default.numFrames")
-                BigDecimal resolvedFps = GenicamUtil.resolveConfiguredBigDecimal(ec, fps, "genicam.videos.default.fps")
-                Integer resolvedResizeWidth = GenicamUtil.resolveConfiguredInteger(ec, resizeWidth, "genicam.videos.resize.width")
-                Integer resolvedResizeHeight = GenicamUtil.resolveConfiguredInteger(ec, resizeHeight, "genicam.videos.resize.height")
-                Map<String, Object> pyResults = [:]
-
-                try (GenicamClient client = new GenicamClient(ec, ctiPath, serialNumber, deviceId)) {
-                    pyResults = client.acquireVideoFile(resolvedNumFrames, resolvedFps, resolvedOutputDir,
-                            resolvedVideoContainer, resolvedVideoCodec, resolvedResizeWidth, resolvedResizeHeight)
-                } catch (Throwable t) {
-                    ec.logger.error("GenICam JEP video file acquisition failed", t)
-                    throw t
-                }
-
-                context.videoLocation = pyResults?.get("video_path")
-                context.acquiredFrames = pyResults?.get("acquired_frames")
-                context.fps = pyResults?.get("fps")
-                context.videoContainer = pyResults?.get("container")
-                context.videoCodec = pyResults?.get("codec")
-            ]]></script>
-        </actions>
     </service>
 
-    <service verb="acquire" noun="MultiVideoFile" authenticate="false" transaction="ignore">
+    <service verb="acquire" noun="MultiVideoFile" type="rust" location="moqui_genicam::services::acquire_multi_video_file" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="deviceIdList" type="List" required="true"/>
             <parameter name="connectionNameList" type="List"/>
@@ -298,72 +96,9 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="successfulCount" type="Integer"/>
             <parameter name="failedCount" type="Integer"/>
         </out-parameters>
-        <actions>
-            <script><![CDATA[
-                import org.moqui.context.ExecutionContext
-                import org.moqui.entity.EntityValue
-                import org.moqui.genicam.GenicamMultiCameraRunner
-                import org.moqui.genicam.GenicamUtil
-
-                ExecutionContext ec = context.ec
-                List<String> resolvedDeviceIdList = (deviceIdList ?: []) as List<String>
-                if (!resolvedDeviceIdList) throw new IllegalArgumentException("At least one deviceId is required.")
-
-                List<String> resolvedConnectionNameList = (connectionNameList ?: []) as List<String>
-                String resolvedOutputDir = GenicamUtil.resolveConfiguredPath(ec, outputDir,
-                        "genicam.videos.path", GenicamUtil.DEFAULT_VIDEOS_PATH)
-                Integer resolvedNumFrames = GenicamUtil.resolveConfiguredInteger(ec, numFrames, "genicam.videos.default.numFrames")
-                BigDecimal resolvedFps = GenicamUtil.resolveConfiguredBigDecimal(ec, fps, "genicam.videos.default.fps")
-                String resolvedVideoContainer = GenicamUtil.resolveVideoContainer(ec, videoContainer)
-                String resolvedVideoCodec = GenicamUtil.resolveVideoCodec(ec, videoCodec)
-                Integer resolvedResizeWidth = GenicamUtil.resolveConfiguredInteger(ec, resizeWidth, "genicam.videos.resize.width")
-                Integer resolvedResizeHeight = GenicamUtil.resolveConfiguredInteger(ec, resizeHeight, "genicam.videos.resize.height")
-                Long resolvedProcessTimeoutMs = GenicamUtil.resolveConfiguredLong(ec, processTimeoutMs,
-                        "genicam.multi.process.timeout.ms")
-
-                List<Map<String, Object>> cameraList = []
-                for (int idx = 0; idx < resolvedDeviceIdList.size(); idx++) {
-                    String currentDeviceId = resolvedDeviceIdList.get(idx)
-                    EntityValue device = ec.entity.find("moqui.device.Device").condition("deviceId", currentDeviceId).one()
-                    if (!device) throw new IllegalArgumentException("Device not found with ID: ${currentDeviceId}")
-
-                    String currentConnectionName = idx < resolvedConnectionNameList.size() ? resolvedConnectionNameList.get(idx) : null
-                    EntityValue connection = currentConnectionName ?
-                            ec.entity.find("moqui.device.DeviceConnection").condition("connectionName", currentConnectionName).one() :
-                            ec.entity.find("moqui.device.DeviceConnection").condition("deviceId", currentDeviceId).one()
-                    if (!connection) throw new IllegalArgumentException("Connection not found for device: ${currentDeviceId}")
-                    if (!connection.transportConfig) {
-                        throw new IllegalArgumentException("Connection transportConfig must specify driver path for device ${currentDeviceId}.")
-                    }
-
-                    cameraList.add([
-                            camera_index: idx,
-                            device_id: currentDeviceId,
-                            serial_number: GenicamUtil.resolveSerialNumber(device, connection),
-                            cti_path: connection.transportConfig
-                    ])
-                }
-
-                Map<String, Object> options = [
-                        output_dir: resolvedOutputDir,
-                        num_frames: resolvedNumFrames,
-                        fps: resolvedFps,
-                        video_container: resolvedVideoContainer,
-                        video_codec: resolvedVideoCodec,
-                        resize_width: resolvedResizeWidth,
-                        resize_height: resolvedResizeHeight,
-                        processTimeoutMs: resolvedProcessTimeoutMs
-                ]
-                Map<String, Object> pyResults = GenicamMultiCameraRunner.acquireMultiVideoFile(ec, cameraList, options)
-
-                context.captureResults = pyResults?.get("results")
-                context.successfulCount = pyResults?.get("successful_count")
-                context.failedCount = pyResults?.get("failed_count")
-            ]]></script>
-        </actions>
     </service>
 
-    <service verb="acquire" noun="VisualServoFrame" authenticate="false" transaction="ignore">
+    <service verb="acquire" noun="VisualServoFrame" type="rust" location="moqui_genicam::services::acquire_visual_servo_frame" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="deviceId" required="true"/>
             <parameter name="connectionName"/>
@@ -390,165 +125,18 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="snapshotDeviceContentId"/>
             <parameter name="previewDeviceContentId"/>
         </out-parameters>
-        <actions>
-            <!-- Resolve PhysicalDevice -->
-            <entity-find-one entity-name="moqui.device.Device" value-field="device"/>
-            <if condition="!device">
-                <message error="true">Device not found with ID: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <!-- Resolve Connection -->
-            <if condition="connectionName">
-                <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                    <field-map field-name="connectionName" from="connectionName"/>
-                </entity-find-one>
-                <else>
-                    <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                        <field-map field-name="deviceId" from="deviceId"/>
-                    </entity-find-one>
-                </else>
-            </if>
-            <if condition="!connection">
-                <message error="true">Connection not found for device: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <set field="ctiPath" from="connection.transportConfig"/>
-            <if condition="!ctiPath">
-                <message error="true">Connection transportConfig must specify driver path.</message>
-                <check-errors/>
-            </if>
-
-            <script><![CDATA[
-                import org.moqui.context.ExecutionContext
-                import org.moqui.genicam.GenicamClient
-                import org.moqui.genicam.GenicamUtil
-
-                ExecutionContext ec = context.ec
-                String serialNumber = GenicamUtil.resolveSerialNumber(device, connection)
-                String resolvedOutputDir = GenicamUtil.resolveConfiguredPath(ec, outputDir,
-                        "genicam.servo.path", GenicamUtil.DEFAULT_SERVO_PATH)
-                String resolvedImageFormat = GenicamUtil.resolveImageFormat(ec, imageFormat)
-                Boolean resolvedUseCachedFrame = GenicamUtil.resolveConfiguredBoolean(ec, useCachedFrame,
-                        "genicam.servo.default.useCachedFrame")
-                Boolean resolvedSaveSnapshot = GenicamUtil.resolveConfiguredBoolean(ec, saveSnapshot,
-                        "genicam.servo.default.saveSnapshot")
-                Integer resolvedResizeWidth = GenicamUtil.resolveConfiguredInteger(ec, resizeWidth, "genicam.servo.resize.width")
-                Integer resolvedResizeHeight = GenicamUtil.resolveConfiguredInteger(ec, resizeHeight, "genicam.servo.resize.height")
-                Map<String, Object> pyResults = [:]
-
-                try (GenicamClient client = new GenicamClient(ec, ctiPath, serialNumber, deviceId)) {
-                    pyResults = client.acquireVisualServoFrame(resolvedUseCachedFrame as boolean,
-                            resolvedSaveSnapshot as boolean, resolvedOutputDir, resolvedImageFormat,
-                            resolvedResizeWidth, resolvedResizeHeight)
-                } catch (Throwable t) {
-                    ec.logger.error("GenICam JEP visual servo frame acquisition failed", t)
-                    throw t
-                }
-
-                context.frameBytes = pyResults?.get("frame_bytes")
-                context.jpegBytes = pyResults?.get("jpeg_bytes")
-                context.contentType = pyResults?.get("content_type")
-                context.dataFormat = pyResults?.get("data_format")
-                context.frameFormat = pyResults?.get("extension")
-                context.componentIndex = pyResults?.get("component_index")
-                context.width = pyResults?.get("width")
-                context.height = pyResults?.get("height")
-                context.capturedAt = pyResults?.get("captured_at")
-                context.source = pyResults?.get("source")
-                context.snapshotLocation = pyResults?.get("snapshot_location")
-                context.previewLocation = pyResults?.get("preview_location")
-                context.snapshotDeviceContentId = pyResults?.get("snapshot_device_content_id")
-                context.previewDeviceContentId = pyResults?.get("preview_device_content_id")
-            ]]></script>
-        </actions>
     </service>
 
-    <service verb="stream" noun="LiveMjpeg" authenticate="false" transaction="ignore">
+    <service verb="stream" noun="LiveMjpeg" type="rust" location="moqui_genicam::services::stream_live_mjpeg" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="deviceId" required="true"/>
             <parameter name="connectionName"/>
             <parameter name="maxFrames" type="Integer"/>
             <parameter name="frameDelayMs" type="Long"/>
         </in-parameters>
-        <actions>
-            <if condition="!ec.web">
-                <message error="true">This service must be called in a web request context.</message>
-                <check-errors/>
-            </if>
-
-            <entity-find-one entity-name="moqui.device.Device" value-field="device"/>
-            <if condition="!device">
-                <message error="true">Device not found: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <if condition="connectionName">
-                <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                    <field-map field-name="connectionName" from="connectionName"/>
-                </entity-find-one>
-                <else>
-                    <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                        <field-map field-name="deviceId" from="deviceId"/>
-                    </entity-find-one>
-                </else>
-            </if>
-            <if condition="!connection">
-                <message error="true">Connection not found for device: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <set field="ctiPath" from="connection.transportConfig"/>
-            <script><![CDATA[
-                import org.moqui.context.ExecutionContext
-                import org.moqui.genicam.GenicamClient
-                import org.moqui.genicam.GenicamUtil
-                import jakarta.servlet.http.HttpServletResponse
-                import java.io.OutputStream
-
-                ExecutionContext ec = context.ec
-                String serialNumber = GenicamUtil.resolveSerialNumber(device, connection)
-                Integer resolvedMaxFrames = GenicamUtil.resolveConfiguredInteger(ec, maxFrames, "genicam.stream.max.frames")
-                Long resolvedFrameDelayMs = GenicamUtil.resolveConfiguredLong(ec, frameDelayMs, "genicam.stream.frame.delay.ms")
-
-                HttpServletResponse response = (HttpServletResponse) ec.web.response
-                response.setContentType("multipart/x-mixed-replace; boundary=frame")
-                response.setHeader("Cache-Control", "no-cache, private, must-revalidate")
-                response.setHeader("Pragma", "no-cache")
-                response.setHeader("Connection", "keep-alive")
-
-                OutputStream os = response.getOutputStream()
-
-                try (GenicamClient client = new GenicamClient(ec, ctiPath, serialNumber, deviceId)) {
-                    int frameCount = 0
-                    
-                    while (frameCount < resolvedMaxFrames) {
-                        byte[] jpegBytes = client.getFrameBytes()
-
-                        if (jpegBytes) {
-                            try {
-                                os.write(("--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + jpegBytes.length + "\r\n\r\n").getBytes())
-                                os.write(jpegBytes)
-                                os.write("\r\n".getBytes())
-                                os.flush()
-                            } catch (IOException ioEx) {
-                                ec.logger.info("Live stream client disconnected for camera ${serialNumber}")
-                                break
-                            }
-                        }
-                        frameCount++
-                        Thread.sleep(resolvedFrameDelayMs)
-                    }
-                } catch (Throwable t) {
-                    ec.logger.error("GenICam Live MJPEG stream error", t)
-                    throw t
-                }
-            ]]></script>
-        </actions>
     </service>
 
-    <service verb="acquire" noun="GenICam3DFrame" authenticate="false" transaction="ignore">
+    <service verb="acquire" noun="GenICam3DFrame" type="rust" location="moqui_genicam::services::acquire_genicam_3d_frame" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="deviceId" required="true"/>
             <parameter name="connectionName"/>
@@ -559,115 +147,15 @@ along with this software (see the LICENSE.md file). If not, see
             <parameter name="tensorContentId"/>
             <parameter name="contentLocation"/>
         </out-parameters>
-        <actions>
-            <!-- Resolve PhysicalDevice -->
-            <entity-find-one entity-name="moqui.device.Device" value-field="device"/>
-            <if condition="!device">
-                <message error="true">Device not found with ID: ${deviceId}</message>
-                <check-errors/>
-            </if>
-            
-            <!-- Resolve Connection -->
-            <if condition="connectionName">
-                <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                    <field-map field-name="connectionName" from="connectionName"/>
-                </entity-find-one>
-                <else>
-                    <entity-find-one entity-name="moqui.device.DeviceConnection" value-field="connection">
-                        <field-map field-name="deviceId" from="deviceId"/>
-                    </entity-find-one>
-                </else>
-            </if>
-            <if condition="!connection">
-                <message error="true">Connection not found for device: ${deviceId}</message>
-                <check-errors/>
-            </if>
-
-            <set field="ctiPath" from="connection.transportConfig"/>
-            <if condition="!ctiPath">
-                <message error="true">Connection transportConfig must specify driver path.</message>
-                <check-errors/>
-            </if>
-            
-            <script><![CDATA[
-                import org.moqui.context.ExecutionContext
-                import org.moqui.genicam.GenicamClient
-                import org.moqui.genicam.GenicamUtil
-
-                ExecutionContext ec = context.ec
-                String serialNumber = GenicamUtil.resolveSerialNumber(device, connection)
-                String resolvedOutputDir = GenicamUtil.resolveConfiguredPath(ec, outputDir,
-                        "genicam.tensors.path", GenicamUtil.DEFAULT_TENSORS_PATH)
-                Map<String, Object> pyResults = [:]
-
-                try (GenicamClient client = new GenicamClient(ec, ctiPath, serialNumber, deviceId)) {
-                    pyResults = client.acquire3dFrame()
-                } catch (Throwable t) {
-                    ec.logger.error("GenICam JEP 3D frame acquisition failed", t)
-                    throw t
-                }
-
-                if (pyResults) {
-                    Map<String, Object> storedTensor = GenicamUtil.storeTensorPayload(ec, serialNumber, pyResults, resolvedOutputDir)
-                    context.tensorId = storedTensor.get("tensorId")
-                    context.tensorContentId = storedTensor.get("tensorContentId")
-                    context.contentLocation = storedTensor.get("contentLocation")
-                }
-            ]]></script>
-        </actions>
     </service>
 
-    <service verb="clean" noun="GenICamTensors" authenticate="false" transaction="ignore">
+    <service verb="clean" noun="GenICamTensors" type="rust" location="moqui_genicam::services::clean_genicam_tensors" authenticate="false" transaction="ignore">
         <in-parameters>
             <parameter name="daysToKeep" type="Integer" default-value="30"/>
             <parameter name="outputDir"/>
         </in-parameters>
-        <actions>
-            <set field="keepMillis" from="daysToKeep * 24 * 60 * 60 * 1000L"/>
-            <set field="thresholdTime" from="System.currentTimeMillis() - keepMillis"/>
-            <set field="thresholdDate" from="new java.sql.Timestamp(thresholdTime)"/>
-
-            <log level="info" message="Cleaning up GenICam ToF tensors older than ${thresholdDate} (daysToKeep=${daysToKeep})..."/>
-
-            <entity-find entity-name="moqui.math.TensorContent" list="oldContents">
-                <econdition field-name="contentDate" operator="less-than" from="thresholdDate"/>
-                <econdition field-name="contentTypeEnumId" value="TCntNpy"/>
-            </entity-find>
-
-            <set field="deletedCount" from="0" type="Integer"/>
-            <iterate list="oldContents" entry="content">
-                <!-- Delete the file from the filesystem first -->
-                <script><![CDATA[
-                    if (content.contentLocation) {
-                        java.io.File file = new java.io.File(content.contentLocation)
-                        if (file.exists()) {
-                            try {
-                                file.delete()
-                                ec.logger.info("Deleted old tensor file: ${content.contentLocation}")
-                            } catch (Exception e) {
-                                ec.logger.error("Failed to delete tensor file ${content.contentLocation}: ${e.getMessage()}")
-                            }
-                        }
-                    }
-                ]]></script>
-
-                <!-- Perform DB deletions in a transaction block to maintain database integrity -->
-                <script><![CDATA[
-                    boolean beganTx = ec.transaction.begin(null)
-                    try {
-                        ec.entity.find("moqui.math.TensorContent").condition("tensorContentId", content.tensorContentId).deleteAll()
-                        ec.entity.find("moqui.math.TensorAxis").condition("tensorId", content.tensorId).deleteAll()
-                        ec.entity.find("moqui.math.Tensor").condition("tensorId", content.tensorId).deleteAll()
-                        ec.transaction.commit(beganTx)
-                        deletedCount++
-                    } catch (Throwable t) {
-                        ec.transaction.rollback(beganTx, "Failed to clean tensor DB records", t)
-                        ec.logger.error("Failed to delete DB records for tensor ${content.tensorId}: ${t.getMessage()}")
-                    }
-                ]]></script>
-            </iterate>
-            
-            <log level="info" message="Successfully cleaned up ${deletedCount} old ToF tensors."/>
-        </actions>
+        <out-parameters>
+            <parameter name="deletedCount" type="Integer"/>
+        </out-parameters>
     </service>
 </services>
